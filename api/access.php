@@ -6,7 +6,8 @@ $requestedFile = $_GET['file'] ?? '';
 
 // Dynamically retrieve the directory from the referrer or request
 $referrer = $_SERVER['HTTP_REFERER'] ?? '';
-$directory = basename(parse_url($referrer, PHP_URL_PATH)); // Get the directory name from the path part of the referrer
+// Get the directory name from the path part of the referrer
+$directory = basename(parse_url($referrer, PHP_URL_PATH));
 
 // Get the base directory
 $baseDir = realpath(UPLOAD_PATH . '/' . $directory);
