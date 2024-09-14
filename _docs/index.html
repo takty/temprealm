@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>File Upload Test</title>
+</head>
+<body>
+
+	<h1>Upload Multiple Files</h1>
+
+	<!-- File selection form -->
+	<form id="uploadForm">
+		<input type="file" id="fileInput" multiple>
+		<br><br>
+		<button type="submit">Upload Files</button>
+	</form>
+
+	<div id="response"></div>
+
+	<script>
+		// Handle form submission event
+		document.getElementById('uploadForm').addEventListener('submit', function(event) {
+			event.preventDefault();  // Prevent the default form submission behavior
+
+			// Get the selected files
+			const files = document.getElementById('fileInput').files;
+			if (files.length === 0) {
+				alert('Please select files to upload.');
+				return;
+			}
+
+			// Create a FormData object
+			const formData = new FormData();
+
+			// Add the selected files to the FormData object
+			for (let i = 0; i < files.length; i++) {
+				formData.append('file' + i, files[i]);
+			}
+
+			// Send the request to the API
+			fetch('https://takty.net/temprealm/upload.php', {
+				method: 'POST',
+				body: formData
+			})
+			.then(response => response.json())
+			.then(data => {
+				// Display the response after upload
+				document.getElementById('response').innerHTML = 'Upload complete: ' + JSON.stringify(data);
+			})
+			.catch(error => {
+				console.error('Error:', error);
+				document.getElementById('response').innerHTML = 'Upload failed: ' + error.message;
+			});
+		});
+	</script>
+
+</body>
+</html>
