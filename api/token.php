@@ -3,7 +3,7 @@
  * Token
  *
  * @author Takuto Yanagida
- * @version 2024-09-13
+ * @version 2024-09-15
  */
 
 /**
@@ -11,7 +11,7 @@
  *
  * @param string $ip
  */
-function generateToken(string $ip): void {
+function generateToken(string $ip): string {
 	// Hash the IP address to create a token
 	return hash('sha256', $ip);
 }
@@ -21,7 +21,7 @@ function generateToken(string $ip): void {
  *
  * @param string $token
  */
-function getDirectoryByToken(string $token): void {
+function getDirectoryByToken(string $token): string {
 	// File that stores the mapping between tokens and URLs
 	$f = TOKEN_MAPPING_FILE;
 
