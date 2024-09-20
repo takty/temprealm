@@ -3,7 +3,7 @@
  * Config
  *
  * @author Takuto Yanagida
- * @version 2024-09-15
+ * @version 2024-09-18
  */
 
 /**
@@ -21,6 +21,12 @@ define('EXPIRY_TIME', 3600);
 
 // Path to the token mapping file
 define('TOKEN_MAPPING_FILE', 'token-mapping.json');
+
+// Expiry settings
+define('EXPIRY_DATA_PATH', 'expiry-data');  // Directory where expiry.json files are stored
+
+// Max token count
+define('MAX_TOKEN_COUNT', 10);
 
 /**
  * File size limits
