@@ -54,3 +54,30 @@ function deleteAllInDirectory(string $dir) {
 		}
 	}
 }
+
+/**
+ * Normalizes File Array.
+ *
+ * @param array $files
+ * @param array $paths
+ * @return array
+ */
+function normalizeFileArray(array $files, array $paths = []): array {
+	$ret = [];
+
+	if (!is_array($files['name'])) {
+		$ret[] = $files;
+		return $ret;
+	}
+	foreach($files['name'] as $idx => $name) {
+		$ret[$idx] = [
+			'name'     => $name,
+			'type'     => $files['type'][$idx],
+			'tmp_name' => $files['tmp_name'][$idx],
+			'error'    => $files['error'][$idx],
+			'size'     => $files['size'][$idx],
+			'path'     => $paths[$idx],
+		];
+	}
+	return $ret;
+}

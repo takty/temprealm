@@ -23,8 +23,9 @@ if (countTokensByIP($ip) >= MAX_TOKEN_COUNT && 'new' === $act) {
 	exit;
 }
 
-$token = generateToken($ip, $id);
-$dir   = getDirectoryByToken($token);
+$token   = generateToken($ip, $id);
+$dir     = getDirectoryByToken($token);
+$baseDir = UPLOAD_PATH . '/' . $dir;
 
 if ('remove' === $act) {
 	$baseDir = UPLOAD_PATH . '/' . $dir;
@@ -44,51 +45,37 @@ if (!$dir) {
 	saveTokenMapping($token, $ip, $dir);
 }
 
-$baseDir = UPLOAD_PATH . '/' . $dir;
-
 // Handle the update action
 if ('update' === $act) {
-	// Calculate the total size of the existing files in the directory
-	$totalSize = calculateTotalSize($baseDir);
+	$fs = normalizeFileArray($_FILES['files'], $_POST['paths']);
 
-	// Calculate the size of the uploaded files
-	foreach ($_FILES['files']['name'] as $key => $name) {
-		$filePath = $_POST['paths'][$key];
-		if (empty($filePath)) {
-			$filePath = $_FILES['files']['name'][$key];
-		}
+	$totalSize = calculateTotalSize($baseDir);
+	foreach ($fs as $f) {
+		$filePath = empty($f['path']) ? $f['name'] : $f['path'];
 		$fullPath = $baseDir . '/' . $filePath;
 
 		if (file_exists($fullPath)) {
 			$totalSize -= filesize($fullPath);
 		}
-		$totalSize += $_FILES['files']['size'][$key];
+		if ($f['size'] > MAX_FILE_SIZE) {
+			echo json_encode(['error' => 'One of the files exceeds the size limit of 5MB.']);
+			exit;
+		}
+		$totalSize += $f['size'];
 	}
-
-	// Check if the new total size exceeds the limit
 	if ($totalSize > MAX_TOTAL_SIZE) {
 		echo json_encode(['error' => 'The total file size exceeds the limit of 20MB.']);
 		exit;
 	}
-	// Check if any individual file exceeds the size limit
-	foreach ($_FILES['files']['name'] as $key => $name) {
-		if ($_FILES['files']['size'][$key] > MAX_FILE_SIZE) {
-			echo json_encode(['error' => 'One of the files exceeds the size limit of 5MB.']);
-			exit;
-		}
-		// Recreate the directory structure
-		$filePath = $_POST['paths'][$key];
-		if (empty($filePath)) {
-			$filePath = $_FILES['files']['name'][$key];
-		}
+	foreach ($fs as $f) {
+		$filePath = empty($f['path']) ? $f['name'] : $f['path'];
 		$fullPath = $baseDir . '/' . $filePath;
 		$dirPath  = dirname($fullPath);
 
 		if (!is_dir($dirPath)) {
-			mkdir($dirPath, 0777, true);  // Create directories if they don't exist
+			mkdir($dirPath, 0777, true);
 		}
-		// Overwrite the file in the directory
-		move_uploaded_file($_FILES['files']['tmp_name'][$key], $fullPath);
+		move_uploaded_file($f['tmp_name'], $fullPath);
 	}
 	// Return success response
 	echo json_encode(['success' => 'Files and directories have been uploaded successfully.']);
@@ -97,43 +84,30 @@ if ('update' === $act) {
 
 if ('new' === $act) {
 	deleteAllInDirectory($baseDir);
+	$fs = normalizeFileArray($_FILES['files'], $_POST['paths']);
 
-	// Calculate the total size of the uploaded files
 	$totalSize = 0;
-	foreach ($_FILES['files']['size'] as $size) {
-		$totalSize += $size;
+	foreach ($fs as $f) {
+		if ($f['size'] > MAX_FILE_SIZE) {
+			echo json_encode(['error' => 'One of the files exceeds the size limit of 5MB.']);
+			exit;
+		}
+		$totalSize += $f['size'];
 	}
-
-	// Check the total size limit
 	if ($totalSize > MAX_TOTAL_SIZE) {
 		echo json_encode(['error' => 'The total file size exceeds the limit of 20MB.']);
 		exit;
 	}
-	// ob_start();
-	// var_dump( $_FILES['files'] );
-	// $result = ob_get_clean();
-
-	// Check each file's size
-	foreach ($_FILES['files']['name'] as $key => $name) {
-		if ($_FILES['files']['size'][$key] > MAX_FILE_SIZE) {
-			echo json_encode(['error' => 'One of the files exceeds the size limit of 5MB.']);
-			exit;
-		}
-		// Upload the file
-		$filePath = $_POST['paths'][$key];
-		if (empty($filePath)) {
-			$filePath = $_FILES['files']['name'][$key];
-		}
+	foreach ($fs as $f) {
+		$filePath = empty($f['path']) ? $f['name'] : $f['path'];
 		$fullPath = $baseDir . '/' . $filePath;
 		$dirPath  = dirname($fullPath);
 
 		if (!is_dir($dirPath)) {
 			mkdir($dirPath, 0777, true);
 		}
-		move_uploaded_file($_FILES['files']['tmp_name'][$key], $fullPath);
+		move_uploaded_file($f['tmp_name'], $fullPath);
 	}
-	// Save the expiration time in expiry_data/<token>.json using the function
 	saveExpiry($token);
-	// After uploading, return the directory URL
 	echo json_encode(['url' => BASE_URL . "/$dir/"]);
 }
