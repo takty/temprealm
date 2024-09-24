@@ -32,11 +32,10 @@
 			for (let f of fs) {
 				formData.append('files[]', f);
 				formData.append('paths[]', f.webkitRelativePath);
-				console.log(f.webkitRelativePath);
 			}
 
 			// Send the request to the API
-			fetch('https://takty.net/temprealm/api/upload.php', {
+			fetch('https://takty.net/temprealm/api/', {
 				method: 'POST',
 				body: formData
 			}).then(response => response.json())

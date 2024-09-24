@@ -3,24 +3,8 @@
  * Unique Identifier
  *
  * @author Takuto Yanagida
- * @version 2024-09-20
+ * @version 2024-09-24
  */
-
-/**
- * Generates a secure identifier.
- *
- * @param string $prefix
- * @param bool   $more_entropy
- * @return string
- */
-function uniqid_ex(string $prefix = '', bool $more_entropy = false): string {
-	$len    = $more_entropy ? 23 : 13;
-	$bytes  = (int) ceil($len / 2);
-	$rb     = random_bytes($bytes);
-	$hex    = bin2hex($rb);
-	$uniqid = substr($hex, 0, $len);
-	return $prefix . $uniqid;
-}
 
 /**
  * Calculates the total size of files.
@@ -80,4 +64,17 @@ function normalizeFileArray(array $files, array $paths = []): array {
 		];
 	}
 	return $ret;
+}
+
+function moveUploadedFiles(string $baseDir, array $fs) {
+	foreach ($fs as $f) {
+		$filePath = empty($f['path']) ? $f['name'] : $f['path'];
+		$fullPath = $baseDir . '/' . $filePath;
+		$dirPath  = dirname($fullPath);
+
+		if (!is_dir($dirPath)) {
+			mkdir($dirPath, 0777, true);
+		}
+		move_uploaded_file($f['tmp_name'], $fullPath);
+	}
 }

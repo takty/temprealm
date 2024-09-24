@@ -7,4 +7,4 @@ RewriteRule ^uploads/ - [F,L]
 RewriteCond %{REQUEST_FILENAME} !-f
 
 # Redirect requests for non-existing files to access.php
-RewriteRule ^(.*)$ access.php?file=$1 [QSA,L]
+RewriteRule ^(.*)$ index.php [L,QSA]

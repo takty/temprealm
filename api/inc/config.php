@@ -19,14 +19,14 @@ define('UPLOAD_PATH', 'uploads');
 // Expiry time (set in seconds, 1 hour = 3600 seconds)
 define('EXPIRY_TIME', 3600);
 
-// Path to the token mapping file
-define('TOKEN_MAPPING_FILE', 'token-mapping.json');
+// Path to the secret mapping file
+define('SECRET_MAPPING_FILE', 'secret-mapping.json');
 
 // Expiry settings
 define('EXPIRY_DATA_PATH', 'expiry-data');  // Directory where expiry.json files are stored
 
-// Max token count
-define('MAX_TOKEN_COUNT', 10);
+// Max secret count
+define('MAX_SECRET_COUNT', 10);
 
 /**
  * File size limits
