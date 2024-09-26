@@ -61,7 +61,7 @@ function sendError(string $msg) {
 
 
 function get($reqPath) {
-	$parts       = explode('/', $reqPath);
+	$parts       = explode('/', trim($reqPath, '/'));
 	$secret      = array_shift($parts);  // The first part is the secret
 	$reqFilePath = implode('/', $parts);  // Remaining part is the file path (e.g., lib/test.js)
 
@@ -71,10 +71,18 @@ function get($reqPath) {
 		$baseDir = realpath(UPLOAD_PATH . '/' . $dir);
 
 		if (!deleteExpiredFiles($secret, $baseDir)) {
+			if (!empty($reqFilePath) && !str_ends_with($reqPath, '/') && is_dir($baseDir . '/' . $reqFilePath)) {
+				header('HTTP/1.1 301 Moved Permanently');
+				header('Location: ' . get_request_url() . '/');
+				exit;
+			}
 			if (empty($reqFilePath)) {
 				$reqFilePath = 'index.html';
 			}
 			$fullReqPath = realpath($baseDir . '/' . $reqFilePath);
+			if (is_dir($fullReqPath)) {
+				$fullReqPath = $fullReqPath . '/index.html';
+			}
 
 			// Check if the requested file exists and is within the base directory
 			if ($fullReqPath && 0 === strpos($fullReqPath, $baseDir) && file_exists($fullReqPath)) {
@@ -123,10 +131,27 @@ function post($addr) {
 		exit;
 	}
 	moveUploadedFiles($baseDir, $fs);
+
+	$reqUrl = rtrim( get_request_url(), '/');
+	$script = basename($_SERVER['SCRIPT_FILENAME']);
+	if (str_ends_with($reqUrl, $script)) {
+		$url = substr($reqUrl, 0, -strlen($script)) . "$secret/";
+	} else {
+		$url = $reqUrl . "/$secret/";
+	}
+
 	header('HTTP/1.1 200 OK');
-	header('Location: ' . BASE_URL . "/$dir/");
 	header('Content-Type: application/json');
-	echo json_encode(['success' => 'Files and directories have been uploaded successfully.']);
+	echo json_encode([
+		'url'     => $url,
+		'success' => 'Files and directories have been uploaded successfully.',
+	]);
+}
+
+function get_request_url(): string {
+	$host = $_SERVER['HTTP_HOST'] ?? '';
+	$req  = $_SERVER['REQUEST_URI'] ?? '';
+	return ( isset( $_SERVER['HTTPS'] ) ? 'https://' : 'http://' ) . stripslashes( $host ) . stripslashes( $req );
 }
 
 
@@ -136,7 +161,7 @@ function post($addr) {
 function put($addr, $reqPath) {
 	cleanUpExpiredFiles();
 
-	$parts  = explode('/', $reqPath);
+	$parts  = explode('/', trim($reqPath, '/'));
 	$secret = array_shift($parts);  // The first part is the secret
 
 	if ($addr !== getAddrBySecret($secret)) {
@@ -183,7 +208,7 @@ function put($addr, $reqPath) {
 function delete($addr, $reqPath) {
 	cleanUpExpiredFiles();
 
-	$parts  = explode('/', $reqPath);
+	$parts  = explode('/', trim($reqPath, '/'));
 	$secret = array_shift($parts);  // The first part is the secret
 
 	if ($addr === getAddrBySecret($secret)) {
