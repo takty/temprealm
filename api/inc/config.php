@@ -3,12 +3,15 @@
  * Config
  *
  * @author Takuto Yanagida
- * @version 2024-09-18
+ * @version 2024-09-30
  */
 
 /**
  * Basic settings
  */
+
+// Origin allow to access
+define('ALLOWED_ORIGIN', 'https://takty.net');
 
 // Base URL of the site
 define('BASE_URL', 'https://takty.net');

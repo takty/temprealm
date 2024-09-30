@@ -3,24 +3,14 @@
  * Index
  *
  * @author Takuto Yanagida
- * @version 2024-09-24
+ * @version 2024-09-30
  */
 
 require_once 'inc/config.php';
 require_once 'inc/secret.php';
 require_once 'inc/util.php';
 
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-	if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] === BASE_URL) {
-		header('Access-Control-Allow-Origin: https://takty.net');
-		header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
-		header('Access-Control-Allow-Headers: Content-Type');
-	} else {
-		header('HTTP/1.1 403 Forbidden');
-		echo 'Access denied';
-		exit;
-	}
-}
+checkAllowedAccess(ALLOWED_ORIGIN);
 
 $addr    = $_SERVER['REMOTE_ADDR'];
 $reqPath = getRequestPath();
@@ -40,27 +30,13 @@ switch ($_SERVER['REQUEST_METHOD']) {
 		break;
 }
 
-function getRequestPath() {
-	$script_name = dirname($_SERVER['SCRIPT_NAME']);
-	$request_uri = $_SERVER['REQUEST_URI'];
-
-	if (strpos($request_uri, $script_name) === 0) {
-		$request_uri = substr($request_uri, strlen($script_name));
-	}
-	return $request_uri;
-}
-
-function sendError(string $msg) {
-	header('HTTP/1.1 400 Bad Request');
-	header('Content-Type: application/json');
-	echo json_encode(['error' => $msg]);
-}
-
 
 // -----------------------------------------------------------------------------
 
 
-function get($reqPath) {
+function get(string $reqPath): void {
+	$reqPath = removeQueryAndHash($reqPath);
+
 	$parts       = explode('/', trim($reqPath, '/'));
 	$secret      = array_shift($parts);  // The first part is the secret
 	$reqFilePath = implode('/', $parts);  // Remaining part is the file path (e.g., lib/test.js)
@@ -101,7 +77,7 @@ function get($reqPath) {
 // -----------------------------------------------------------------------------
 
 
-function post($addr) {
+function post(string $addr): void {
 	cleanUpExpiredFiles();
 
 	if (countSecretsByAddr($addr) >= MAX_SECRET_COUNT) {
@@ -148,17 +124,11 @@ function post($addr) {
 	]);
 }
 
-function get_request_url(): string {
-	$host = $_SERVER['HTTP_HOST'] ?? '';
-	$req  = $_SERVER['REQUEST_URI'] ?? '';
-	return ( isset( $_SERVER['HTTPS'] ) ? 'https://' : 'http://' ) . stripslashes( $host ) . stripslashes( $req );
-}
-
 
 // -----------------------------------------------------------------------------
 
 
-function put($addr, $reqPath) {
+function put(string $addr, string $reqPath): void {
 	cleanUpExpiredFiles();
 
 	$parts  = explode('/', trim($reqPath, '/'));
@@ -205,7 +175,7 @@ function put($addr, $reqPath) {
 // -----------------------------------------------------------------------------
 
 
-function delete($addr, $reqPath) {
+function delete(string $addr, string $reqPath): void {
 	cleanUpExpiredFiles();
 
 	$parts  = explode('/', trim($reqPath, '/'));

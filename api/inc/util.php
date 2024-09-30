@@ -3,8 +3,58 @@
  * Unique Identifier
  *
  * @author Takuto Yanagida
- * @version 2024-09-24
+ * @version 2024-09-30
  */
+
+function checkAllowedAccess(string $origin) {
+	if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+		if (isset($_SERVER['HTTP_ORIGIN']) && $_SERVER['HTTP_ORIGIN'] === $origin) {
+			header('Access-Control-Allow-Origin: ' . $origin);
+			header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
+			header('Access-Control-Allow-Headers: Content-Type');
+		} else {
+			header('HTTP/1.1 403 Forbidden');
+			echo 'Access denied';
+			exit;
+		}
+	}
+}
+
+function getRequestPath() {
+	$script_name = dirname($_SERVER['SCRIPT_NAME']);
+	$request_uri = $_SERVER['REQUEST_URI'];
+
+	if (strpos($request_uri, $script_name) === 0) {
+		$request_uri = substr($request_uri, strlen($script_name));
+	}
+	return $request_uri;
+}
+
+function removeQueryAndHash(string $path): string {
+	if (($pos = strpos($path, '?')) !== false) {
+		$path = substr($path, 0, $pos);
+	}
+	if (($pos = strpos($path, '#')) !== false) {
+		$path = substr($path, 0, $pos);
+	}
+	return $path;
+}
+
+function sendError(string $msg) {
+	header('HTTP/1.1 400 Bad Request');
+	header('Content-Type: application/json');
+	echo json_encode(['error' => $msg]);
+}
+
+function get_request_url(): string {
+	$host = $_SERVER['HTTP_HOST'] ?? '';
+	$req  = $_SERVER['REQUEST_URI'] ?? '';
+	return ( isset( $_SERVER['HTTPS'] ) ? 'https://' : 'http://' ) . stripslashes( $host ) . stripslashes( $req );
+}
+
+
+// -----------------------------------------------------------------------------
+
 
 /**
  * Calculates the total size of files.
@@ -38,6 +88,10 @@ function deleteAllInDirectory(string $dir) {
 		}
 	}
 }
+
+
+// -----------------------------------------------------------------------------
+
 
 /**
  * Normalizes File Array.
