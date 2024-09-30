@@ -6,27 +6,28 @@
  * @version 2024-09-30
  */
 
+require_once 'inc/lib/file.php';
+require_once 'inc/lib/upload.php';
 require_once 'inc/config.php';
 require_once 'inc/secret.php';
 require_once 'inc/util.php';
 
-checkAllowedAccess(ALLOWED_ORIGIN);
+check_allowed_access(ALLOWED_ORIGIN);
 
-$addr    = $_SERVER['REMOTE_ADDR'];
-$reqPath = getRequestPath();
+$addr = $_SERVER['REMOTE_ADDR'];
 
 switch ($_SERVER['REQUEST_METHOD']) {
 	case 'GET':
 		get($reqPath);
 		break;
 	case 'POST':
-		post($addr, $reqPath);
+		post($addr);
 		break;
 	case 'PUT':
-		put($addr, $reqPath);
+		put($addr);
 		break;
 	case 'DELETE':
-		delete($addr, $reqPath);
+		delete($addr);
 		break;
 }
 
@@ -34,20 +35,20 @@ switch ($_SERVER['REQUEST_METHOD']) {
 // -----------------------------------------------------------------------------
 
 
-function get(string $reqPath): void {
-	$reqPath = removeQueryAndHash($reqPath);
+function get(): void {
+	$reqPath = get_request_path();
 
 	$parts       = explode('/', trim($reqPath, '/'));
 	$secret      = array_shift($parts);  // The first part is the secret
 	$reqFilePath = implode('/', $parts);  // Remaining part is the file path (e.g., lib/test.js)
 
-	$dir = $secret ? getDirectoryBySecret($secret) : null;
+	$dir = $secret ? get_directory_by_secret($secret) : null;
 
 	if ($dir) {
-		$baseDir = realpath(UPLOAD_PATH . '/' . $dir);
+		$baseDir = realpath(join_paths(UPLOAD_PATH, $dir));
 
-		if (!deleteExpiredFiles($secret, $baseDir)) {
-			if (!empty($reqFilePath) && !str_ends_with($reqPath, '/') && is_dir($baseDir . '/' . $reqFilePath)) {
+		if (!delete_files_if_expired($secret, $baseDir)) {
+			if (!empty($reqFilePath) && !str_ends_with($reqPath, '/') && is_dir(join_paths($baseDir, $reqFilePath))) {
 				header('HTTP/1.1 301 Moved Permanently');
 				header('Location: ' . get_request_url() . '/');
 				exit;
@@ -55,13 +56,12 @@ function get(string $reqPath): void {
 			if (empty($reqFilePath)) {
 				$reqFilePath = 'index.html';
 			}
-			$fullReqPath = realpath($baseDir . '/' . $reqFilePath);
+			$fullReqPath = realpath(join_paths($baseDir, $reqFilePath));
 			if (is_dir($fullReqPath)) {
 				$fullReqPath = $fullReqPath . '/index.html';
 			}
-
 			// Check if the requested file exists and is within the base directory
-			if ($fullReqPath && 0 === strpos($fullReqPath, $baseDir) && file_exists($fullReqPath)) {
+			if ($fullReqPath && str_starts_with($fullReqPath, $baseDir) && file_exists($fullReqPath)) {
 				header('HTTP/1.1 200 OK');
 				header('Content-Type: ' . mime_content_type($fullReqPath));
 				readfile($fullReqPath);
@@ -70,7 +70,7 @@ function get(string $reqPath): void {
 		}
 	}
 	// If the file doesn't exist or is outside the allowed directory, deny access
-	header('HTTP/1.1 403 Forbidden');
+	send_response(403);
 }
 
 
@@ -78,35 +78,35 @@ function get(string $reqPath): void {
 
 
 function post(string $addr): void {
-	cleanUpExpiredFiles();
+	clean_up_expired_files();
 
-	if (countSecretsByAddr($addr) >= MAX_SECRET_COUNT) {
-		sendError('Maximum number of secrets (10) reached for this IP.');
+	if (count_secrets_by_addr($addr) >= MAX_SECRET_COUNT) {
+		send_response(400, 'Maximum number of secrets (10) reached for this IP.');
 		exit;
 	}
-	$secret = generateSecret($addr);
+	$secret = generate_secret($addr);
 
 	$dir = uniqid_ex();
-	saveSecretMapping($secret, $addr, $dir);
+	save_secret_mapping($secret, $addr, $dir);
 
-	$baseDir = UPLOAD_PATH . '/' . $dir;
+	$baseDir = join_paths(UPLOAD_PATH, $dir);
 	mkdir($baseDir, 0777, true);
 
-	$fs = normalizeFileArray($_FILES['files'], $_POST['paths']);
+	$fs = normalize_file_array($_FILES['files'], $_POST['paths']);
 
 	$totalSize = 0;
 	foreach ($fs as $f) {
 		if ($f['size'] > MAX_FILE_SIZE) {
-			sendError('One of the files exceeds the size limit of 5MB.');
+			send_response(400, 'One of the files exceeds the size limit of 5MB.');
 			exit;
 		}
 		$totalSize += $f['size'];
 	}
 	if ($totalSize > MAX_TOTAL_SIZE) {
-		sendError('The total file size exceeds the limit of 20MB.');
+		send_response(400, 'The total file size exceeds the limit of 20MB.');
 		exit;
 	}
-	moveUploadedFiles($baseDir, $fs);
+	move_uploaded_files($baseDir, $fs);
 
 	$reqUrl = rtrim( get_request_url(), '/');
 	$script = basename($_SERVER['SCRIPT_FILENAME']);
@@ -115,80 +115,68 @@ function post(string $addr): void {
 	} else {
 		$url = $reqUrl . "/$secret/";
 	}
-
-	header('HTTP/1.1 200 OK');
-	header('Content-Type: application/json');
-	echo json_encode([
-		'url'     => $url,
-		'success' => 'Files and directories have been uploaded successfully.',
-	]);
+	send_response(200, 'Files and directories have been uploaded successfully.', ['url' => $url]);
 }
 
 
 // -----------------------------------------------------------------------------
 
 
-function put(string $addr, string $reqPath): void {
-	cleanUpExpiredFiles();
+function put(string $addr): void {
+	clean_up_expired_files();
+	$secret = get_request_path_first();  // The first part is the secret
 
-	$parts  = explode('/', trim($reqPath, '/'));
-	$secret = array_shift($parts);  // The first part is the secret
-
-	if ($addr !== getAddrBySecret($secret)) {
-		sendError('Directory not found.');
+	if ($addr !== get_addr_by_secret($secret)) {
+		send_response(400, 'Directory not found.');
 		exit;
 	}
-	$dir = getDirectoryBySecret($secret);
+	$dir = get_directory_by_secret($secret);
 	if (!$dir) {
-		sendError('Directory not found.');
+		send_response(400, 'Directory not found.');
 		exit;
 	}
-	$baseDir = UPLOAD_PATH . '/' . $dir;
+	$baseDir = join_paths(UPLOAD_PATH, $dir);
 
-	$fs = normalizeFileArray($_FILES['files'], $_POST['paths']);
+	$fs = normalize_file_array($_FILES['files'], $_POST['paths']);
 
-	$totalSize = calculateTotalSize($baseDir);
+	$totalSize = calculate_total_size($baseDir);
 	foreach ($fs as $f) {
 		$filePath = empty($f['path']) ? $f['name'] : $f['path'];
-		$fullPath = $baseDir . '/' . $filePath;
+		$fullPath = join_paths($baseDir, $filePath);
 
 		if (file_exists($fullPath)) {
 			$totalSize -= filesize($fullPath);
 		}
 		if ($f['size'] > MAX_FILE_SIZE) {
-			sendError('One of the files exceeds the size limit of 5MB.');
+			send_response(400, 'One of the files exceeds the size limit of 5MB.');
 			exit;
 		}
 		$totalSize += $f['size'];
 	}
 	if ($totalSize > MAX_TOTAL_SIZE) {
-		sendError('The total file size exceeds the limit of 20MB.');
+		send_response(400, 'The total file size exceeds the limit of 20MB.');
 		exit;
 	}
-	moveUploadedFiles($baseDir, $fs);
-	header('HTTP/1.1 200 OK');
-	header('Content-Type: application/json');
-	echo json_encode(['success' => 'Files and directories have been uploaded successfully.']);
+	move_uploaded_files($baseDir, $fs);
+	send_response(200, 'Files and directories have been uploaded successfully.');
 }
 
 
 // -----------------------------------------------------------------------------
 
 
-function delete(string $addr, string $reqPath): void {
-	cleanUpExpiredFiles();
+function delete(string $addr): void {
+	clean_up_expired_files();
+	$secret = get_request_path_first();  // The first part is the secret
 
-	$parts  = explode('/', trim($reqPath, '/'));
-	$secret = array_shift($parts);  // The first part is the secret
-
-	if ($addr === getAddrBySecret($secret)) {
-		$dir = getDirectoryBySecret($secret);
+	if ($addr === get_addr_by_secret($secret)) {
+		$dir = get_directory_by_secret($secret);
 
 		if ($dir) {
-			$baseDir = UPLOAD_PATH . '/' . $dir;
+			$baseDir = join_paths(UPLOAD_PATH, $dir);
 
 			if (file_exists($baseDir)) {
-				deleteFiles($secret, $baseDir);
+				delete_files($secret, $baseDir);
 				header('HTTP/1.1 200 OK');
 				header('Content-Type: application/json');
 				echo json_encode(['success' => 'Directory and files have been removed.']);
@@ -196,5 +184,5 @@ function delete(string $addr, string $reqPath): void {
 			}
 		}
 	}
-	sendError('Directory not found.');
+	send_response(400, 'Directory not found.');
 }

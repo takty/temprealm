@@ -3,9 +3,10 @@
  * Secret
  *
  * @author Takuto Yanagida
- * @version 2024-09-24
+ * @version 2024-09-30
  */
 
+require_once 'lib/file.php';
 require_once 'config.php';
 
 /**
@@ -24,20 +25,20 @@ function uniqid_ex(string $prefix = '', bool $more_entropy = false): string {
 	return $prefix . $uniqid;
 }
 
-
-// -----------------------------------------------------------------------------
-
-
 /**
  * Generate a secret.
  *
  * @param string $addr IP address.
  * @return string Secret.
  */
-function generateSecret($addr): string {
+function generate_secret(string $addr): string {
 	$secretBase = $addr . microtime();
 	return hash('sha256', $secretBase);
 }
+
+
+// -----------------------------------------------------------------------------
+
 
 /**
  * Counts how many secrets have been issued for a given IP.
@@ -45,7 +46,7 @@ function generateSecret($addr): string {
  * @param string $addr IP address.
  * @return int Issued secret count.
  */
-function countSecretsByAddr(string $addr): int {
+function count_secrets_by_addr(string $addr): int {
 	$f = SECRET_MAPPING_FILE;
 	$c = 0;
 
@@ -66,7 +67,7 @@ function countSecretsByAddr(string $addr): int {
  * @param string $secret Secret.
  * @return string IP address.
  */
-function getAddrBySecret(string $secret): string {
+function get_addr_by_secret(string $secret): string {
 	$f = SECRET_MAPPING_FILE;
 
 	if (file_exists($f)) {
@@ -84,7 +85,7 @@ function getAddrBySecret(string $secret): string {
  * @param string $secret Secret.
  * @return string Directory.
  */
-function getDirectoryBySecret(string $secret): string {
+function get_directory_by_secret(string $secret): string {
 	$f = SECRET_MAPPING_FILE;
 
 	if (file_exists($f)) {
@@ -103,7 +104,7 @@ function getDirectoryBySecret(string $secret): string {
  * @param string $addr   IP address.
  * @param string $dir    Directory.
  */
-function saveSecretMapping(string $secret, string $addr, string $dir): void {
+function save_secret_mapping(string $secret, string $addr, string $dir): void {
 	$f   = SECRET_MAPPING_FILE;
 	$map = [];
 
@@ -123,39 +124,19 @@ function saveSecretMapping(string $secret, string $addr, string $dir): void {
 
 
 /**
- * Check if the file has expired based on the expiry file.
- *
- * @param string $secret Secret.
- * @return bool Whether the secret is expired.
- */
-function isExpired(string $secret): bool {
-	$f   = SECRET_MAPPING_FILE;
-	$map = [];
-
-	if (file_exists($f)) {
-		$map = json_decode(file_get_contents($f), true);
-		if (time() > $map[$secret]['expiry']) {
-			return true;
-		}
-	}
-	return false;
-}
-
-/**
  * Clean up expired files across all secrets.
  */
-function cleanUpExpiredFiles(): void {
-	$f   = SECRET_MAPPING_FILE;
-	$map = [];
+function clean_up_expired_files(): void {
+	$f = SECRET_MAPPING_FILE;
 
 	if (file_exists($f)) {
-		$map = json_decode(file_get_contents($f), true);
+		$map     = json_decode(file_get_contents($f), true);
 		$new_map = [];
 
 		foreach ($map as $secret => $d) {
 			if (time() > $d['expiry']) {
-				$baseDir = realpath(UPLOAD_PATH . '/' . $d['dir']);
-				deleteAllInDirectory($baseDir);
+				$baseDir = realpath(join_paths(UPLOAD_PATH, $d['dir']));
+				remove_all($baseDir);
 			} else {
 				$new_map[$secret] = $d;
 			}
@@ -171,14 +152,14 @@ function cleanUpExpiredFiles(): void {
  * @param string $baseDir Base directory.
  * @return bool Whether the deletion is succeeded.
  */
-function deleteExpiredFiles(string $secret, string $baseDir): bool {
-	$f   = SECRET_MAPPING_FILE;
-	$map = [];
+function delete_files_if_expired(string $secret, string $baseDir): bool {
+	$f = SECRET_MAPPING_FILE;
 
 	if (file_exists($f)) {
 		$map = json_decode(file_get_contents($f), true);
+
 		if (time() > $map[$secret]['expiry']) {
-			deleteAllInDirectory($baseDir);
+			remove_all($baseDir);
 			unset($map[$secret]);
 			file_put_contents($f, json_encode($map));
 			return true;
@@ -193,13 +174,12 @@ function deleteExpiredFiles(string $secret, string $baseDir): bool {
  * @param string $secret   Secret.
  * @param string $baseDir Base directory.
  */
-function deleteFiles(string $secret, string $baseDir): void {
-	$f   = SECRET_MAPPING_FILE;
-	$map = [];
+function delete_files(string $secret, string $baseDir): void {
+	$f = SECRET_MAPPING_FILE;
 
 	if (file_exists($f)) {
 		$map = json_decode(file_get_contents($f), true);
-		deleteAllInDirectory($baseDir);
+		remove_all($baseDir);
 		unset($map[$secret]);
 		file_put_contents($f, json_encode($map));
 	}
