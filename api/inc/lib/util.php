@@ -3,7 +3,7 @@
  * Unique Identifier
  *
  * @author Takuto Yanagida
- * @version 2024-09-30
+ * @version 2024-10-30
  */
 
 /**
@@ -50,12 +50,12 @@ function get_request_path_first(): string {
  * @return string The cleaned path without query string or fragment.
  */
 function remove_query_and_hash(string $path): string {
-	if (($pos = strpos($path, '?')) !== false) {
-		$path = substr($path, 0, $pos);
-	}
-	if (($pos = strpos($path, '#')) !== false) {
-		$path = substr($path, 0, $pos);
-	}
+	$ps   = explode( '#', $path );
+	$path = $ps[0];
+
+	$ps   = explode( '?', $path );
+	$path = $ps[0];
+
 	return $path;
 }
 
